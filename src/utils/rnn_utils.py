@@ -15,6 +15,7 @@ def clean_text(txt):
     txt = txt.encode("utf8").decode("ascii",'ignore')
     return txt 
 
+
 def sequence_of_tokens(tokenizer, corpus):
     ## convert data to sequence of tokens 
     input_sequences = []
