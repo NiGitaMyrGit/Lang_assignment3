@@ -7,13 +7,18 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.models import load_model
-from utils.rnn_utils import generate_text
+import joblib
 
 # importing argument parser
 import argparse
 from argparse import ArgumentParser
 parser = ArgumentParser()
-
+default_model_path = os.path.join("out", "text_generate_model.tf")
+default_tokenizer_path = os.path.join("out", "tokenizer.joblib")
+default_data_path = os.path.join("in", "archive")
+parser.add_argument("--data_path", "-d", type=str, default=default_data_path, help="input path for loading the data")
+parser.add_argument("--model_path", "-m", type=str, default=default_model_path, help="output path for saving the model")
+parser.add_argument("--tokenizer_path", "-t", type=str, default=default_tokenizer_path, help="output path for saving the tokenizer")
 # ensuring reproducibility after H2G2 standards
 np.random.seed(42)
 tf.random.set_seed(42)
@@ -25,16 +30,15 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 from utils import rnn_utils as rnf
 
 # load and preprocess data
-def load_data():
-    data_dir = os.path.join("in", "subset")
+def load_data(args):
     all_text = []
-    for filename in os.listdir(data_dir):
+    for filename in os.listdir(args.data_path):
         if 'Comments' in filename:
-            comments_df = pd.read_csv(os.path.join(data_dir, filename))
-            all_text.extend(list(comments_df['commentBody'].head(1000).values)) # TODO fix 'head' to 'param'
+            comments_df = pd.read_csv(os.path.join(args.data_path, filename))
+            all_text.extend(list(comments_df['commentBody'].values))
     # clean up data
-    all_text = [h for h in all_text if h != "Unknown"]
-    #call out ```clean_text()``` utils function
+    all_text = [str(h) for h in all_text if h != "Unknown"]
+    # call the `clean_text()` utils function
     corpus = [rnf.clean_text(x) for x in all_text]
 
     return corpus
@@ -59,30 +63,32 @@ def tokenise_data(corpus):
 # Using the ```create_model()``` function to initialize a model,
 # Can be trained provided with the length of sequences and the total size of the vocabulary.
 def create_train_model(training_data):
-    # TODO wouldn't it be smarter to have outside the functions so I shouldn't put this in twice? 
     predictors, label, tokenizer, max_sequence_len, total_words = training_data
     model = rnf.create_model(max_sequence_len, total_words)
     model.summary()
 
     # train model
-    model.fit(predictors,
+    history = model.fit(
+                predictors,
                 label,
-                epochs=10, #TODO how many epochs is fitting? 
+                epochs=10, #TODO how many epochs are fitting? 
                 batch_size=128, 
                 verbose=1)
     return history, model
 
 
 def main():
+    args = parser.parse_args()
     #load and preprocess data
-    corpus = load_data()
+    corpus = load_data(args)
     #Tokenize
     training_data, tokenizer = tokenise_data(corpus)
     #generate model
     history, model = create_train_model(training_data)
     #save model
-    tf.keras.models.save_model(model, os.path.join("out", "text_generate_model.tf"))
-    # TODO: load model
+    tf.keras.models.save_model(model, args.model_path)
+    # save the tokenizer
+    joblib.dump(tokenizer, args.tokenizer_path)
 
 #calling main function
 if __name__== "__main__":

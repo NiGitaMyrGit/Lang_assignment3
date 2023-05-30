@@ -5,7 +5,6 @@ __pycache__/
 
 in/full_dataset/
 in/subset/
-out/text_generate_model.tf/
 help/
 src/test/
 
